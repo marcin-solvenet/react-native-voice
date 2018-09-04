@@ -12,7 +12,8 @@ import android.speech.SpeechRecognizer;
 import android.support.annotation.NonNull;
 import android.util.Log;
 
-import com.facebook.react.modules.core.PermissionAwareActivity;
+// import com.facebook.react.modules.core.PermissionAwareActivity;
+import com.facebook.react.ReactActivity;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Callback;
 import com.facebook.react.bridge.ReactApplicationContext;
