@@ -3,6 +3,7 @@ package com.wenkesj.voice;
 import android.Manifest;
 import android.content.Intent;
 import android.content.pm.PackageManager;
+import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.speech.RecognitionListener;
@@ -11,6 +12,7 @@ import android.speech.SpeechRecognizer;
 import android.support.annotation.NonNull;
 import android.util.Log;
 
+import com.facebook.react.modules.core.PermissionAwareActivity;
 import com.facebook.react.bridge.Arguments;
 import com.facebook.react.bridge.Callback;
 import com.facebook.react.bridge.ReactApplicationContext;
@@ -21,8 +23,8 @@ import com.facebook.react.bridge.ReadableMapKeySetIterator;
 import com.facebook.react.bridge.WritableArray;
 import com.facebook.react.bridge.WritableMap;
 import com.facebook.react.modules.core.DeviceEventManagerModule;
-import com.facebook.react.modules.core.PermissionAwareActivity;
 import com.facebook.react.modules.core.PermissionListener;
+import android.media.AudioManager;
 
 import java.util.ArrayList;
 import java.util.Locale;
@@ -33,6 +35,7 @@ public class VoiceModule extends ReactContextBaseJavaModule implements Recogniti
 
   final ReactApplicationContext reactContext;
   private SpeechRecognizer speech = null;
+  private AudioManager audioManager = null;
   private boolean isRecognizing = false;
   private String locale = null;
 
@@ -49,11 +52,42 @@ public class VoiceModule extends ReactContextBaseJavaModule implements Recogniti
     return Locale.getDefault().toString();
   }
 
+  private void muteAudio(Boolean mute)
+  {
+    if (audioManager == null) {
+      return;
+    }
+
+    try
+    {
+      // mute (or) un mute audio based on status
+      if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M)
+      {
+        audioManager.adjustStreamVolume(AudioManager.STREAM_MUSIC, mute ?
+                                                                   AudioManager.ADJUST_MUTE :
+                                                                   AudioManager.ADJUST_UNMUTE, 0);
+      }
+      else
+      {
+        audioManager.setStreamMute(AudioManager.STREAM_MUSIC, mute);
+      }
+    }
+    catch (Exception e) {
+      Log.d("ASR", "muteAudio exception " + e.toString());
+    }
+  }
+
   private void startListening(ReadableMap opts) {
     if (speech != null) {
       speech.destroy();
       speech = null;
     }
+
+    if(audioManager == null) {
+      // Initializing the audio Manager
+      audioManager = (AudioManager) reactContext.getSystemService(reactContext.AUDIO_SERVICE);
+    }
+
     speech = SpeechRecognizer.createSpeechRecognizer(this.reactContext);
     speech.setRecognitionListener(this);
 
@@ -104,8 +138,11 @@ public class VoiceModule extends ReactContextBaseJavaModule implements Recogniti
       }
     }
 
+    muteAudio(true);
+
     intent.putExtra(RecognizerIntent.EXTRA_LANGUAGE, getLocale(this.locale));
     speech.startListening(intent);
+
   }
 
   @Override
@@ -118,7 +155,7 @@ public class VoiceModule extends ReactContextBaseJavaModule implements Recogniti
     if (!isPermissionGranted() && opts.getBoolean("REQUEST_PERMISSIONS_AUTO")) {
       String[] PERMISSIONS = {Manifest.permission.RECORD_AUDIO};
       if (this.getCurrentActivity() != null) {
-        ((PermissionAwareActivity) this.getCurrentActivity()).requestPermissions(PERMISSIONS, 1, new PermissionListener() {
+        ((ReactActivity) this.getCurrentActivity()).requestPermissions(PERMISSIONS, 1, new PermissionListener() {
           public boolean onRequestPermissionsResult(final int requestCode,
                                                     @NonNull final String[] permissions,
                                                     @NonNull final int[] grantResults) {
@@ -154,14 +191,14 @@ public class VoiceModule extends ReactContextBaseJavaModule implements Recogniti
 
   @ReactMethod
   public void stopSpeech(final Callback callback) {
+
     Handler mainHandler = new Handler(this.reactContext.getMainLooper());
     mainHandler.post(new Runnable() {
       @Override
       public void run() {
         try {
-          if (speech != null) {
-            speech.stopListening();
-          }
+          muteAudio(false);
+          speech.stopListening();
           isRecognizing = false;
           callback.invoke(false);
         } catch(Exception e) {
@@ -178,9 +215,8 @@ public class VoiceModule extends ReactContextBaseJavaModule implements Recogniti
       @Override
       public void run() {
         try {
-          if (speech != null) {
-            speech.cancel();
-          }
+          muteAudio(false);
+          speech.cancel();
           isRecognizing = false;
           callback.invoke(false);
         } catch(Exception e) {
@@ -197,9 +233,8 @@ public class VoiceModule extends ReactContextBaseJavaModule implements Recogniti
       @Override
       public void run() {
         try {
-          if (speech != null) {
-            speech.destroy();
-          }
+          muteAudio(false);
+          speech.destroy();
           speech = null;
           isRecognizing = false;
           callback.invoke(false);
@@ -275,7 +310,8 @@ public class VoiceModule extends ReactContextBaseJavaModule implements Recogniti
     WritableMap error = Arguments.createMap();
     error.putString("message", errorMessage);
     WritableMap event = Arguments.createMap();
-    event.putMap("error", error);
+    event.putMap("message", error);
+    event.putInt("code", errorCode);
     sendEvent("onSpeechError", event);
     Log.d("ASR", "onError() - " + errorMessage);
   }
@@ -318,6 +354,7 @@ public class VoiceModule extends ReactContextBaseJavaModule implements Recogniti
     WritableMap event = Arguments.createMap();
     event.putArray("value", arr);
     sendEvent("onSpeechResults", event);
+
     Log.d("ASR", "onResults()");
   }
 
