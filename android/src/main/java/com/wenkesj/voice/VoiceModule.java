@@ -53,6 +53,7 @@ public class VoiceModule extends ReactContextBaseJavaModule implements Recogniti
     return Locale.getDefault().toString();
   }
 
+  
   private void muteAudio(Boolean mute)
   {
     if (audioManager == null) {
@@ -198,10 +199,10 @@ public class VoiceModule extends ReactContextBaseJavaModule implements Recogniti
       @Override
       public void run() {
         try {
-          muteAudio(false);
           speech.stopListening();
           isRecognizing = false;
           callback.invoke(false);
+          muteAudio(false);
         } catch(Exception e) {
           callback.invoke(e.getMessage());
         }
@@ -216,10 +217,10 @@ public class VoiceModule extends ReactContextBaseJavaModule implements Recogniti
       @Override
       public void run() {
         try {
-          muteAudio(false);
           speech.cancel();
           isRecognizing = false;
           callback.invoke(false);
+          muteAudio(false);
         } catch(Exception e) {
           callback.invoke(e.getMessage());
         }
@@ -234,11 +235,11 @@ public class VoiceModule extends ReactContextBaseJavaModule implements Recogniti
       @Override
       public void run() {
         try {
-          muteAudio(false);
           speech.destroy();
           speech = null;
           isRecognizing = false;
           callback.invoke(false);
+          muteAudio(false);
         } catch(Exception e) {
           callback.invoke(e.getMessage());
         }
